@@ -27,18 +27,39 @@ def get_ape_info(ape_id):
 
     data = {'owner': "", 'image': "", 'eyes': ""}
 
+# 1. Instantiate the contract
     contract = web3.eth.contract(address=contract_address, abi=abi)
+
+    # 2. Get the owner address
     data['owner'] = contract.functions.ownerOf(ape_id).call()
-    uri = contract.functions.tokenURI(ape_id).call()
-    url = uri.replace("ipfs://", "https://ipfs.io/ipfs/")
-    response = requests.get(url)
-    metadata = response.json()
-    data['image'] = metadata.get('image')
-    attributes = metadata.get('attributes')
-    for attribute in attributes:
-        if attribute.get('trait_type') == 'Eyes':
-            data['eyes'] = attribute.get('value')
-            break
+
+    # 3. Get the tokenURI which points to the metadata
+    token_uri = contract.functions.tokenURI(ape_id).call()
+
+    # 4. Convert the IPFS URI to a public HTTP gateway URL
+    if token_uri.startswith("ipfs://"):
+        http_url = token_uri.replace("ipfs://", "https://ipfs.io/ipfs/")
+    else:
+        http_url = token_uri
+
+    # 5. Fetch the metadata JSON from the gateway
+    response = requests.get(http_url)
+    
+    # Check if the request was successful before parsing
+    if response.status_code == 200:
+        metadata = response.json()
+        
+        # 6. Extract the image URI
+        data['image'] = metadata.get('image', "")
+        
+        # 7. Iterate through the attributes to find the 'Eyes' trait
+        attributes = metadata.get('attributes', [])
+        for attribute in attributes:
+            if attribute.get('trait_type') == 'Eyes':
+                data['eyes'] = attribute.get('value', "")
+                break
+    else:
+        print(f"Failed to fetch metadata for Ape {ape_id}. Status code: {response.status_code}")
 
     assert isinstance(data, dict), f'get_ape_info{ape_id} should return a dict'
     assert all([a in data.keys() for a in
