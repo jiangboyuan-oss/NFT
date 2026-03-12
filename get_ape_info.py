@@ -27,7 +27,18 @@ def get_ape_info(ape_id):
 
     data = {'owner': "", 'image': "", 'eyes': ""}
 
-    # YOUR CODE HERE
+    contract = web3.eth.contract(address=contract_address, abi=abi)
+    data['owner'] = contract.functions.ownerOf(ape_id).call()
+    uri = contract.functions.tokenURI(ape_id).call()
+    url = uri.replace("ipfs://", "https://ipfs.io/ipfs/")
+    response = requests.get(url)
+    metadata = response.json()
+    data['image'] = metadata.get('image')
+    attributes = metadata.get('attributes')
+    for attribute in attributes:
+        if attribute.get('trait_type') == 'Eyes':
+            data['eyes'] = attribute.get('value')
+            break
 
     assert isinstance(data, dict), f'get_ape_info{ape_id} should return a dict'
     assert all([a in data.keys() for a in
